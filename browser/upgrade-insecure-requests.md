@@ -34,9 +34,9 @@ The HTTP Upgrade-Insecure-Requests request header sends a signal to the server e
 This document defines a mechanism which allows authors to instruct a user agent to upgrade insecure resource requests to secure transport before fetching them.
 ```
 
-这句话的意思通俗来讲就是说程序员通过 `Upgrade-Insecure-Requests` 指令让浏览器使用安全的网络传输去获取不安全的网络资源。举个例子，页面中一张图片的 URL 是 http 协议的，如果设置了 `Upgrade-Insecure-Requests` 指令，那么浏览器会使用 https 协议去获取这个图片。
+这句话的意思通俗来讲就是说程序员通过 `Upgrade-Insecure-Requests` 指令让浏览器使用安全的网络传输去获取不安全的网络资源。举个例子，页面中一张图片的 URL 是 http 协议的，如果设置了 `Upgrade-Insecure-Requests` 指令，那么浏览器会使用 https 协议去获取这个图片。这里有一个[例子][upgrade-insecure-requests example]，可以一观其风采。
 
-听起来很帅的样子，那么具体怎么使用这一指令呢？这个在下文详细介绍，但在此之前，我们先来了解下，w3c 定义这个新指令是为了什么呢？
+看起来很帅的样子，那么具体怎么使用这一指令呢？这个在下文详细介绍，但在此之前，我们先来了解下，w3c 定义这个新指令是为了什么呢？
 
 ## 为什么要设计 `Upgrade-Insecure-Requests`?
 
@@ -90,12 +90,19 @@ http header 方法只需要在响应的 http header 中添加 `Content-Security-
 
 设置了 `upgrade-insecure-requests` 指令后，浏览器会自动升级当前站点的不安全链接，同时保留第三方站点的链接不变，因为直接升级导航类不安全的第三方链接会有很大可能破坏第三方站点，因此这类链接不升级。
 
+*注意，经过测试，Firefox 54 中的导航升级表现与规范描述一致，但在 Chrome 60.0.3112.101 中链接到站内的导航链接并没有自动升级。safari 的表现也与规范不同，首次加载页面点击站内导航链接会自动升级，但有了缓存后，再后退回原页面点击同一站内导航链接则不会自动升级。其他浏览器的表现没有测试，点击查看[测试代码][upgrade-insecure-requests test demo]。*
+
 ### 发现不安全请求
 
-如果我们想了解页面中有哪些不安全的网络请求，w3c 规范中也为我们提供了基于浏览器的解决方案。使用 `Content-Security-Policy-Report-Only` 头设置以及 `report-uri` 指令，我们可以借助浏览器自动收集页面中出现的不安全的链接信息，设置如下：
+如果我们想了解页面中有哪些不安全的网络请求，w3c 规范中也为我们提供了基于浏览器的解决方案。使用 `report-uri` 指令，我们可以借助浏览器自动收集页面中出现的不安全的链接信息，设置如下：
 
 ```http
-Content-Security-Policy: upgrade-insecure-requests; default-src https: 
+Content-Security-Policy: upgrade-insecure-requests; default-src https:; report-uri /report-csp
+```
+
+这里要注意的事，report-uri 只能使用 http header 的方式生效，html meta 的方式不起作用。另外，如果我们不设置页面的安全策略，只收集不安全资源请求的信息也是可以的，此时可以使用 `Content-Security-Policy-Report-Only` 这一设置。
+
+```http
 Content-Security-Policy-Report-Only: default-src https:; report-uri /endpoint
 ```
 
@@ -132,6 +139,8 @@ caniuse 的数据显示，PC 端 IE 和 Edge “阵亡了”，移动端就更�
 [MDN Upgrade-Insecure-Requests]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Upgrade-Insecure-Requests
 [MDN CSP]: https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP
 [w3c Upgrade-Insecure-Requests]: https://w3c.github.io/webappsec-upgrade-insecure-requests/
+[upgrade-insecure-requests example]: https://googlechrome.github.io/samples/csp-upgrade-insecure-requests/index.html
+[upgrade-insecure-requests test demo]: ../demo/upgrade-insecure-requests.html
 [mixed warning]: https://mdn.mozillademos.org/files/12543/mixed_content_webconsole.png
 [Mixed Content]: https://developer.mozilla.org/en-US/docs/Web/Security/Mixed_content
 [upgrade-insecure-requests caniuse]: ../images/upgrade-insecure-requests-caniuse.png
