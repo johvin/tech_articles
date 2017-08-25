@@ -2,7 +2,7 @@
 
 > 本文介绍了 `Upgrade-Insecure-Requests` 指令的诞生背景、作用原理及使用注意事项，如果在此之前你对其中某一点或部分内容没有详细的了解，相信本文会给你带来收获的。
 
-文章写于 <time>2017-08-23</time>
+文章写于 <time>2017-08-24</time>，最后更新 <time>2017-08-25</time>
 
 <!-- TOC -->
 
@@ -22,21 +22,19 @@
 
 ## 从 `Upgrade-Insecure-Requests："1"` 讲起
 
-留心最新的浏览器（Chrome、Firefox、Safari）发出的网络请求，大家能看到有一个请求头字段是 `Upgrade-Insecure-Requests`，这个请求头在以前并没有出现过，那么它有什么作用呢？查看 [MDN][MDN Upgrade-Insecure-Requests] 得到如下的解释：
+留心最新的浏览器（Chrome、Firefox、Safari）发出的网络请求，大家能看到有一个请求头字段是 `Upgrade-Insecure-Requests`，这个请求头以前并没有出现过，那么它有什么作用呢？查看 [MDN][MDN Upgrade-Insecure-Requests] 得到如下的解释：
 
 ```text
 The HTTP Upgrade-Insecure-Requests request header sends a signal to the server expressing the client’s preference for an encrypted and authenticated response, and that it can successfully handle the upgrade-insecure-requests CSP directive.
 ```
 
-于是我们知道了，这是浏览器告诉服务器，我优先选择经过加密认证的响应（可以理解为 https 响应），并且我能够处理 `upgrade-insecure-requests` 这个 CSP 指令。至于 CSP 的内容，不在本文范围内，可以参考 [MDN CSP][MDN CSP]。
-
-这个解释似乎没什么问题，但是结合 `upgrade insecure requests` 这个名字仔细琢磨一下，好像解释的又不够明确，于是直接看了 [w3c 规范][w3c Upgrade-Insecure-Requests]，看到了这句话：
+于是我们知道了，这是浏览器告诉服务器，我优先选择经过加密认证的响应（可以理解为 https 响应），并且我能够处理 `upgrade-insecure-requests` 这个 CSP 指令（ CSP 的内容，不在本文范围内，可以参考 [MDN CSP][MDN CSP]）。于是服务器在接收到 `Upgrade-Insecure-Requests："1"` 后，可以重定向的返回请求资源的 https URL，当然也可以做其他的事情，这个在后面会详细介绍。上面的解释的后半句提到了 `upgrade-insecure-requests` 指令，但没有更多的介绍，于是直接看了 [w3c 相关规范][w3c Upgrade-Insecure-Requests]，看到了这句话：
 
 ```
 This document defines a mechanism which allows authors to instruct a user agent to upgrade insecure resource requests to secure transport before fetching them.
 ```
 
-这句话的意思通俗来讲就是说程序员通过 `Upgrade-Insecure-Requests` 这个指令让浏览器使用安全的网络传输去获取不安全的网络资源。举个例子，页面中一张图片的 URL 是 http 协议的，如果设置了 `Upgrade-Insecure-Requests` 指令，那么浏览器会使用 https 协议去获取这个图片。
+这句话的意思通俗来讲就是说程序员通过 `Upgrade-Insecure-Requests` 指令让浏览器使用安全的网络传输去获取不安全的网络资源。举个例子，页面中一张图片的 URL 是 http 协议的，如果设置了 `Upgrade-Insecure-Requests` 指令，那么浏览器会使用 https 协议去获取这个图片。
 
 听起来很帅的样子，那么具体怎么使用这一指令呢？这个在下文详细介绍，但在此之前，我们先来了解下，w3c 定义这个新指令是为了什么呢？
 
@@ -47,11 +45,11 @@ This document defines a mechanism which allows authors to instruct a user agent 
 - 服务器及 CDN 等增加安全证书
 - 传统 http 页面中的所有资源替换为 https 协议
 
-步骤一相对简单，步骤二的工作量就很大了，而且这还不是全部，在实际操作中，程序员维护的页面还好，难的是提供给运营使用的类似 cms 这种根据输入动态生成页面的时候，很难保证运营人员不犯错误的将所有资源的链接都使用 https，一旦 https 页面中出现了 http 资源，那么在控制台你将看到类似下图的警告、错误信息：
+步骤一相对简单，步骤二的工作量就很大了，而且这还不是全部，在实际操作中，对于程序员维护的页面还好，麻烦的是提供给运营使用的类似 cms 这种根据输入动态生成的页面，很难保证运营人员不犯错误的将所有资源的链接都使用 https，一旦 https 页面中出现了 http 资源，那么在控制台你将看到类似下图的警告或者错误信息：
 
 ![mixed content warning][mixed warning]
 
-这个 warning 是浏览器安全机制决定的，具体内容详见 [Mixed Content 安全机制][Mixed Content]。混合被动/显示内容并不影响用户使用，混合活动内容则直接被浏览器阻止加载，严重的站点直接不可用。混合活动内容的严重性暂且不提，即便是混合被动/显示内容，因为木桶原理，瞬间就会瓦解所有为了升级 https 所做的工作，浏览器会认定这样的站点是不安全的。这个问题也是整个互联网在升级到 https 过程中遇到的问题。为了解决这一问题，w3c 提出了基于 `Upgrade-Insecure-Requests` 的解决方案。下面我们一起来了解下，如何使用这一指令完成升级 https 的最后一步。
+这个 warning 是浏览器安全机制决定的，具体内容详见 [Mixed Content 安全机制][Mixed Content]。混合被动/显示内容并不影响用户使用，混合活动内容则直接被浏览器阻止加载，严重的情况站点直接不可用。混合活动内容的严重性暂且不提，即便是混合被动/显示内容，因为木桶原理，瞬间就会瓦解所有为了升级 https 所做的工作，浏览器会认定这样的站点是不安全的。这个问题也是整个互联网在升级到 https 过程中遇到的问题。为了解决这一问题，w3c 提出了基于 `Upgrade-Insecure-Requests` 的解决方案，支持这一指令的浏览器在遇到 http 资源的时候能够自动升级使用 https 协议请求该资源。下面我们一起来了解下，如何使用这一指令完成升级 https 的最后一步。
 
 ## 使用 `Upgrade-Insecure-Requests` 完成向 https 升级的最后一步
 
@@ -59,13 +57,13 @@ This document defines a mechanism which allows authors to instruct a user agent 
 - http header
 - html meta
 
-http header 方法只需要在响应的 http header 中添加 `Content-Security-Policy: upgrade-insecure-requests;` 设置即可。html meta 方法需要添加 `<meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">`。实际中使用哪种方法都可以，方法一操作起来更简单一些。
+http header 方法只需要在响应的 http header 中添加 `Content-Security-Policy: upgrade-insecure-requests;` 设置即可。html meta 方法需要在 `<head></head>` 中间添加 `<meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">`。实际中使用哪种方法都可以，方法一操作起来更简单一些。
 
-另外，根据规范描述，对不安全的资源进行升级也分两种情况，非导航升级和导航升级。
+根据规范描述，对不安全的资源进行升级也分两种情况，非导航升级和导航升级。
 
 ### 非导航升级
 
-什么是非导航升级呢？就是对非导航的的不安全资源请求的升级。非导航请求可以理解为不发生跳转的资源请求，如图片、视频、css 链接等。非导航的不安全资源请求会自动升级为 https。比如一个站点为 `https://example.com`，其页面包含如下非导航的不安全资源请求：
+什么是非导航升级呢？就是对非导航的的不安全资源请求的升级。非导航请求可以理解为不发生跳转的资源请求，如图片、视频、css 链接、js 链接等。非导航的不安全资源请求会自动升级为 https。比如一个站点为 `https://example.com`，其页面包含如下非导航的不安全资源请求：
 
 ```html
 <img src="http://example.com/image.png">
@@ -94,7 +92,7 @@ http header 方法只需要在响应的 http header 中添加 `Content-Security-
 
 ### 发现不安全请求
 
-使用 `Content-Security-Policy-Report-Only` 头设置以及 `report-uri` 指令，我们可以借助浏览器自动收集页面中出现的不安全的链接信息，设置如下：
+如果我们想了解页面中有哪些不安全的网络请求，w3c 规范中也为我们提供了基于浏览器的解决方案。使用 `Content-Security-Policy-Report-Only` 头设置以及 `report-uri` 指令，我们可以借助浏览器自动收集页面中出现的不安全的链接信息，设置如下：
 
 ```http
 Content-Security-Policy: upgrade-insecure-requests; default-src https: 
@@ -110,21 +108,22 @@ Content-Security-Policy-Report-Only: default-src https:; report-uri /endpoint
 
 ![upgrade-insecure-requests compatible][upgrade-insecure-requests caniuse]
 
-caniuse 的数据显示，PC 端 IE 和 Edge “阵亡了”，移动端就更差一些了，毕竟 android 浏览器、UC 浏览器目前都还不支持。不过毕竟该规范目前是 CR 阶段，而 Edge 也正在考虑实现阶段，待到 REC 了，相信一切都会好起来的。不过话说回来，`upgrade-insecure-requests` 可以认为是渐进增强的一种，所以即便现在支持度还不够，那又怎样呢？
+caniuse 的数据显示，PC 端 IE 和 Edge “阵亡了”，移动端就更差一些了，android 浏览器、UC 浏览器目前都还不支持。不过该规范目前还在 CR 阶段，而 Edge 也正在考虑实现阶段，待到 REC 了，相信一切都会好起来的。不过话说回来，`upgrade-insecure-requests` 可以认为是渐进增强的一种，所以即便现在支持度还不够，那又怎样呢？
 
 ## 总结
 
-说了这么多，最后总结下，`upgrade-insecure-requests` 指令的应用需要注意一下几点：
+说了这么多，最后总结下，`upgrade-insecure-requests` 指令的应用需要注意以下几点：
 
 1. 针对支持的浏览器进行应用（当然，不支持的浏览器应用该指令也不会造成任何负面影响）
 1. 应用方式有两种，推荐在服务端使用 http header 方式，简单高效
 1. 应用前确保 CDN 或其他资源提供服务都已经支持 https
 1. 升级分为非导航类升级和导航类升级
 1. 可以对不安全资源进行上报
+1. 兼容性
 
 
 ## 参考资料
-- [W3C 规范][w3c Upgrade-Insecure-Requests]
+- [W3C Upgrade-Insecure-Requests 规范][w3c Upgrade-Insecure-Requests]
 - [MDN Upgrade-Insecure-Requests][MDN Upgrade-Insecure-Requests]
 - [MDN CSP][MDN CSP]
 - [Mixed Content][Mixed Content]
